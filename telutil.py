@@ -12,16 +12,10 @@ import numpy as np
 import scipy.spatial.distance as sd 
 from scipy import linalg
 from mst import * 
+from teliono import TelIono
 
 #random.seed(781490893)
 
-class TelIono:
-    def dr(self, J=1, r0=14.0, B=80.0, tobs=10000.*3600.0, tiono=10.0):
-        return 3.397 * numpy.power(J, math.sqrt(3)/4.0) * numpy.power(B/r0, -5.0/6.0) * numpy.sqrt(tobs/tiono)
-    def ionosphere(self, baseline):
-        return numpy.power(baseline/14.0,+1.8/2.0)/1.5
-    def tobs(self, J, DR=1e5, r0=14.0, B=80.0, tobs=10000.*3600.0, tiono=10.0):
-        return tiono * (DR/3.397) * (DR/3.397) * numpy.power(J, -math.sqrt(3)/2.0) * numpy.power(B/r0, 5.0/6.0)
 
 class sources:
 #  From Condon et al 2012
@@ -176,7 +170,6 @@ class TelArray:
         a.diameter=a1.diameter
         a.nstations=a1.nstations+a2.nstations
         a.stations={}
-        print a1.nstations, a2.nstations, a.nstations
         a.stations['x']=numpy.zeros(a.nstations)
         a.stations['y']=numpy.zeros(a.nstations)
         a.stations['weight']=numpy.zeros(a.nstations)
@@ -508,7 +501,6 @@ class TelArray:
         self.stations['x']=numpy.zeros(self.nstations)
         self.stations['y']=numpy.zeros(self.nstations)
         self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
-        print "Number of stations = ", self.nstations
         station=0
         with open(l1def, 'rU') as f:
             reader = csv.reader(f)
@@ -803,14 +795,17 @@ class TelSources:
         self.name='Sources'
         self.nsources=100
     
-    def construct(self, name='Sources', nsources=100, radius=1):
+    def construct(self, name='Sources', nsources=100, radius=1, smin=0.66545):
         self.name=name
         self.sources={}
         self.sources['x'], self.sources['y']=TelUtils().uniformcircle(nsources, radius)
 
         self.sources['x']=self.sources['x']-numpy.sum(self.sources['x'])/float(nsources)
         self.sources['y']=self.sources['y']-numpy.sum(self.sources['y'])/float(nsources)
-        self.sources['flux']=sources().randomsources(smin=1.0, nsources=nsources) # We normalise so that the minimum source is 1 and the amplitude obeys logN/logS
+        f=sources().randomsources(smin=smin, nsources=10*nsources)
+        # Avoid fields with bright sources
+        self.sources['flux']=f[f<10.0*smin][:nsources]
+        print "Source fluxes = %s" % self.sources['flux']
         self.nsources=nsources
         self.radius=radius
 
@@ -836,11 +831,11 @@ class TelPiercings:
         r2=self.piercings['x']*self.piercings['x']+self.piercings['y']*self.piercings['y']
         npierce=len(r2>(rmax*rmax))
         P=numpy.zeros([npierce,2])
-        P[...,0]=self.piercings['x']-numpy.average(self.piercings['x'])
-        P[...,1]=self.piercings['y']-numpy.average(self.piercings['y'])
+        P[...,0]=self.piercings['x']
+        P[...,1]=self.piercings['y']
         distancemat=numpy.sort(sd.pdist(P))
         iondist=numpy.median(distancemat[:npierce])
-        plt.plot(self.piercings['x']-numpy.average(self.piercings['x']), self.piercings['y']-numpy.average(self.piercings['y']), '.')
+        plt.plot(self.piercings['x'], self.piercings['y'], '.')
         plt.axes().set_aspect('equal')
         circ=plt.Circle((0,0), radius=rmax, color='g', fill=False)
         fig = plt.gcf()
@@ -854,10 +849,10 @@ class TelPiercings:
         plt.show()
         plt.savefig('%s.pdf' % self.name)   
         
-    def construct(self, sources, array, rmin=1, hiono=300, rmax=200.0):
+    def construct(self, sources, array, rmin=1, hiono=300, rmax=200.0, weight=1.0/0.66545):
         self.hiono=hiono
         self.npiercings=sources.nsources*array.nstations
-        self.name='%s_PC' % (array.name)
+        self.name='%s_sources%d_PC' % (array.name, sources.nsources)
         self.piercings={}
         nstations=array.nstations
         self.piercings['x']=numpy.zeros(self.npiercings)
@@ -868,26 +863,26 @@ class TelPiercings:
             self.piercings['x'][source*nstations:(source+1)*nstations]=self.hiono*sources.sources['x'][source]+array.stations['x']
             self.piercings['y'][source*nstations:(source+1)*nstations]=self.hiono*sources.sources['y'][source]+array.stations['y']
             r2=(self.piercings['x'][source*nstations:(source+1)*nstations])**2 + (self.piercings['y'][source*nstations:(source+1)*nstations])**2
-            self.piercings['flux'][source*nstations:(source+1)*nstations]=sources.sources['flux'][source]*sources.sources['flux'][source]
-            self.piercings['weight'][source*nstations:(source+1)*nstations]=array.stations['weight']
-            self.piercings['weight'][source*nstations:(source+1)*nstations][r2>=rmax**2]=0.0
+            self.piercings['flux'][source*nstations:(source+1)*nstations]=sources.sources['flux'][source]
+            self.piercings['weight'][source*nstations:(source+1)*nstations]=sources.sources['flux'][source]**2*weight**2
+            self.piercings['weight'][source*nstations:(source+1)*nstations][r2>=(rmax)**2]=0.0
 
     def assess(self, nnoll=20, rmax=40.0, doplot=True):
-        weight=self.piercings['weight']*self.piercings['flux']
-        x=self.piercings['x']-numpy.average(self.piercings['x'])
-        y=self.piercings['y']-numpy.average(self.piercings['y'])
+        x=self.piercings['x']
+        y=self.piercings['y']
         A=numpy.zeros([self.npiercings, nnoll])
         r=numpy.sqrt(x*x+y*y)
-        pb2=numpy.exp(-numpy.log10(0.01)*(r/rmax)**2) # Model out to 10% of PB
-        pb2[r>rmax]=0.0
         phi=numpy.arctan2(y,x)
+        pb=numpy.exp(-numpy.log(0.01)*(r/rmax)**2) # Model out to 1% of PB
+        pb[r>rmax]=0.0
+        # This should be pb * SNR in gain solution
+        weight=pb*numpy.sqrt(self.piercings['weight'])
         for noll in range(nnoll):
-            A[:,noll]=zernike.zernikel(noll,r/rmax,phi)
+            A[:,noll]=weight*zernike.zernikel(noll,r/rmax,phi)
         Covar_A=numpy.zeros([nnoll, nnoll])
         for nnol1 in range(nnoll):
             for nnol2 in range(nnoll):
-                Covar_A[nnol1,nnol2]=numpy.sum(A[...,nnol1]*pb2*weight[...]*A[...,nnol2])/float(nnoll)
-        print "Condition number = %f" % numpy.linalg.cond(Covar_A)
+                Covar_A[nnol1,nnol2]=numpy.sum(A[...,nnol1]*A[...,nnol2])/float(nnoll)
         U,s,Vh = linalg.svd(Covar_A)
         
         if doplot:
