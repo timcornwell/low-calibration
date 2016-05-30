@@ -13,42 +13,9 @@ import scipy.spatial.distance as sd
 from scipy import linalg
 from mst import * 
 from teliono import TelIono
+from sources import sources
 
 #random.seed(781490893)
-
-
-class sources:
-#  From Condon et al 2012
-    def confusion(self, freq=1.0e8, B=35.0):
-        theta=180.0*3600.0*3.0e8/(freq*B*1000.0*np.pi)
-        return 1.2e-6 * np.power(freq / 3.02e9, -0.7) * np.power(theta/8.0, 10.0/3.0)
-
-#  Integral source counts N(>S) from Condon et al 2012
-    def numbers(self, s=1.0, freq=1e8):
-        return numpy.power(freq/1.4e9, 0.7)*9000.0*numpy.power(s, -1.7)
-
-# Randomly chosen strength.         
-    def randomsources(self, smin=1.0, nsources=1):
-        S=numpy.ones(nsources)
-        for i in range(nsources):
-            S[i]=smin*math.pow(random.uniform(0,1),-1.0/0.7)
-        return S
-                
-# Integrate S.dNdS over S
-    def integratedflux(self, s=1.0, freq=1e8, smax=10000.0):
-        return (1.7/0.7)*numpy.power(freq/1.4e9, 0.7)*9000.0*(numpy.power(s, -0.7)-numpy.power(smax, -0.7))
-        
-# Spot values from L1
-    def noise(self):
-        return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6} 
-
-#  Simpler version
-    def tnoise(self, freq=1e8, time=10000.0*3600.0):
-        scale=numpy.sqrt(10000.0*3600.0/time)
-        if freq<7.5e7:
-            return  scale*25.1e-6
-        else:
-            return  scale*3.1e-6
 
 class TelUtils:
 
@@ -87,7 +54,6 @@ class TelMask:
         
 
     def readKML(self, name='BoolardyStation', kmlfile="BoolardyStation2(approx).kml"):
-        self.weightpergain=100.0 # Only use 10 sigma points    
         long0=116.779167
         lat0=-26.789267
         Re=6371.0
@@ -163,6 +129,7 @@ class TelArray:
             plotfile='%s_Array.pdf' % self.name
         plt.show()
         plt.savefig(plotfile)
+        print "%s has %d" % (self.name, len(self.stations['x']))
     
     def add(self, a1, a2, name):
         a=TelArray()
@@ -179,8 +146,7 @@ class TelArray:
         a.name=name
         return a
         
-    def random(self, name='Stations', rhalo=40, rcore=1.0, nstations=512, nhalo=45, nantennas=256, fobs=1e8, diameter=35.0):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def random(self, name='Stations', rhalo=40, rcore=1.0, nstations=512, nhalo=45, nantennas=256, fobs=1e8, diameter=35.0, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -196,9 +162,9 @@ class TelArray:
         self.stations={}
         self.stations['x'], self.stations['y']=TelUtils().uniformcircle(self.nstations, self.rhalo)
         self.stations['x'][:ncore], self.stations['y'][:ncore]=TelUtils().uniformcircle(ncore, self.rcore)
-        self.stations['weight']=numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
-    def coreBoolardy(self, name='CoreBoolardy', rcore=2.5, nstations=512, nantennas=256, fobs=1e8, diameter=35.0, scale=1.0):
+    def coreBoolardy(self, name='CoreBoolardy', rcore=2.5, nstations=512, nantennas=256, fobs=1e8, diameter=35.0, scale=1.0, weight=1.0):
         self.weightpergain=100.0 # Only use 10 sigma points
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
@@ -217,10 +183,9 @@ class TelArray:
         self.stations['y']=numpy.zeros(self.nstations)
         self.stations['weight']=numpy.zeros(self.nstations)
         self.stations['x'], self.stations['y']=TelUtils().uniformcircle(self.ncore, self.rcore)
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
-    def rasterBoolardy(self, name='RasterBoolardy', rhalo=40.0, rcore=0.0, nstations=512, nhalo=45, nantennas=256, fobs=1e8, diameter=35.0, scale=1.0):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def rasterBoolardy(self, name='RasterBoolardy', rhalo=40.0, rcore=0.0, nstations=512, nhalo=45, nantennas=256, fobs=1e8, diameter=35.0, scale=1.0, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -257,11 +222,10 @@ class TelArray:
         self.nstations=halo
         self.stations['x']=self.stations['x'][:self.nstations]
         self.stations['y']=self.stations['y'][:self.nstations]
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
-        self.shakehalo(iscale/4.0)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
+        self.shakehalo(iscale/2.0)
 
-    def rasterSKA2(self, name='RasterSKA2', rhalo=180.0, rcore=2.5, nstations=155, nhalo=45, nantennas=256, fobs=1e8, diameter=180.0, scale=1.0):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def rasterSKA2(self, name='RasterSKA2', rhalo=180.0, rcore=2.5, nstations=155, nhalo=45, nantennas=256, fobs=1e8, diameter=180.0, scale=1.0, weight=1.0):
         self.name=name
         self.rhalo=rhalo
         self.rcore=rcore
@@ -294,10 +258,9 @@ class TelArray:
         self.nstations=nhalo
         self.stations['x']=self.stations['x'][:self.nstations]
         self.stations['y']=self.stations['y'][:self.nstations]
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
-    def randomBoolardy(self, name='RandomBoolardy', rhalo=40.0, rcore=1.0, nstations=512, nhalo=45, nantennas=256, fobs=1e8, diameter=35.0):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def randomBoolardy(self, name='RandomBoolardy', rhalo=40.0, rcore=1.0, nstations=512, nhalo=45, nantennas=256, fobs=1e8, diameter=35.0, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -329,10 +292,9 @@ class TelArray:
         self.nstations=inhalo
         self.stations['x']=self.stations['x'][:self.nstations]
         self.stations['y']=self.stations['y'][:self.nstations]
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
        
-    def circles(self, name='Stations', rhalo=40, rcore=1.0, nstations=512, nhalo=44, fobs=1e8, diameter=35.0):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def circles(self, name='Stations', rhalo=40, rcore=1.0, nstations=512, nhalo=44, fobs=1e8, diameter=35.0, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -381,11 +343,10 @@ class TelArray:
                 self.stations['y'][station]=self.r[ring]*numpy.sin(phi)
                 phi=phi+dphi
                 station=station+1
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
 
-    def circles(self, name='Stations', rhalo=40, rcore=1.0, nstations=512, nhalo=44, fobs=1e8, diameter=35.0):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def circles(self, name='Stations', rhalo=40, rcore=1.0, nstations=512, nhalo=44, fobs=1e8, diameter=35.0, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -434,10 +395,9 @@ class TelArray:
                 self.stations['y'][station]=self.r[ring]*numpy.sin(phi)
                 phi=phi+dphi
                 station=station+1
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
     def shakehalo(self, rshake=5.0, one=False):
-        self.weightpergain=100.0 # Only use 10 sigma points
         newstations={}
         newstations['x']=self.stations['x'].copy()
         newstations['y']=self.stations['y'].copy()
@@ -462,8 +422,7 @@ class TelArray:
                         newstations['y'][station]=y
         self.stations=newstations
 
-    def readCSV(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv', rhalo=40, recenter=False):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def readCSV(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv', rhalo=40, recenter=False, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -500,7 +459,7 @@ class TelArray:
         f.close()
         self.stations['x']=numpy.zeros(self.nstations)
         self.stations['y']=numpy.zeros(self.nstations)
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
         station=0
         with open(l1def, 'rU') as f:
             reader = csv.reader(f)
@@ -513,10 +472,10 @@ class TelArray:
                     self.stations['y'][station]=y
                     station=station+1
         self.nstations=station
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
-    def readLOWBD(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv'):
-        return self.readCSV(name, rcore, l1def)
+    def readLOWBD(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv', weight=1.0):
+        return self.readCSV(name, rcore, l1def, weight=weight)
 
     def saveCSV(self, filename='LOWBD.csv'):
         with open(filename, 'wb') as fp:
@@ -538,8 +497,7 @@ class TelArray:
                 lat = lat0 +180.0*(self.stations['y'][station])*numpy.cos(numpy.pi*lat0/180.0)/(Re*numpy.pi)
                 rowwriter.writerow([name,long,lat,height0])
                 
-    def readLOWL1(self, name='LOWL1', rcore=0.0, l1def='L1_configuration.csv'):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def readLOWL1(self, name='LOWL1', rcore=0.0, l1def='L1_configuration.csv', weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name=name
@@ -572,7 +530,7 @@ class TelArray:
         
         self.stations['x']=numpy.zeros(self.nstations)
         self.stations['y']=numpy.zeros(self.nstations)
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
         station=0
         scale=6.371e6*numpy.pi/180000.0
         with open(l1def, 'rU') as f:
@@ -584,11 +542,10 @@ class TelArray:
                 if r>rcore:
                     self.stations['x'][station]=x
                     self.stations['y'][station]=y
-                    self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+                    self.stations['weight']=weight*numpy.ones(self.nstations)
                     station=station+1
         
-    def readLOFAR(self, name='LOFAR', stationtype='S', band='HBA', lfdef='LOFAR.csv', lat=52.7):
-        self.weightpergain=100.0 # Only use 10 sigma points
+    def readLOFAR(self, name='LOFAR', stationtype='S', band='HBA', lfdef='LOFAR.csv', lat=52.7, weight=1):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         cs=numpy.cos(numpy.pi*lat/180.0)
@@ -631,10 +588,9 @@ class TelArray:
                     self.stations['x'][station]=x
                     self.stations['y'][station]=-cs*y+sn*z
                     station=station+1
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
 
-    def readKML(self, name='LOWBD2', kmlfile="V4Drsst512red_2", diameter=35.0):
-        self.weightpergain=100.0 # Only use 10 sigma points    
+    def readKML(self, name='LOWBD2', kmlfile="V4Drsst512red_2", diameter=35.0, weight=1.0):
         self.mask=TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         long0=116.779167
@@ -643,7 +599,7 @@ class TelArray:
         self.stations={}
         self.stations['x']=numpy.zeros(512)
         self.stations['y']=numpy.zeros(512)
-        self.stations['weight']=self.weightpergain*numpy.ones(512)
+        self.stations['weight']=weight*numpy.ones(512)
         self.nstations=512
         self.name=name
         self.diameter=diameter
@@ -662,7 +618,7 @@ class TelArray:
                 y= float(line.split('>')[1].split('<')[0].split(',')[1])
                 self.stations['x'][station]=(x-long0)*Re*numpy.pi/(180.0*numpy.cos(numpy.pi*lat0/180.0))
                 self.stations['y'][station]=(y-lat0)* Re*numpy.pi/(180.0*numpy.cos(numpy.pi*lat0/180.0))
-        self.stations['weight']=self.weightpergain*numpy.ones(self.nstations)
+        self.stations['weight']=weight*numpy.ones(self.nstations)
                 
     def writeKML(self, kmlfile="LOW_CIRCLES.kml"):
     
@@ -796,16 +752,29 @@ class TelSources:
         self.nsources=100
     
     def construct(self, name='Sources', nsources=100, radius=1, smin=0.66545):
+        """ Construct nsources sources above the flux limit
+        """
         self.name=name
+        # Make more sources than we need
         self.sources={}
-        self.sources['x'], self.sources['y']=TelUtils().uniformcircle(nsources, radius)
-
-        self.sources['x']=self.sources['x']-numpy.sum(self.sources['x'])/float(nsources)
-        self.sources['y']=self.sources['y']-numpy.sum(self.sources['y'])/float(nsources)
-        f=sources().randomsources(smin=smin, nsources=10*nsources)
+        self.sources['x'], self.sources['y']=TelUtils().uniformcircle(100*nsources, radius)
+        x=self.sources['x']
+        y=self.sources['y']
+        r=numpy.sqrt(x*x+y*y)
+        pb=numpy.exp(numpy.log(0.01)*(r/radius)**2) # Model out to 1% of PB
+        pb[r>radius]=0.0
+        f=pb*sources().randomsources(smin=smin, nsources=100*nsources)
         # Avoid fields with bright sources
-        self.sources['flux']=f[f<10.0*smin][:nsources]
-        print "Source fluxes = %s" % self.sources['flux']
+        x=x[f<10.0*smin]
+        y=y[f<10.0*smin]
+        f=f[f<10.0*smin]
+        x=x[f>smin]
+        y=y[f>smin]
+        f=f[f>smin]
+        self.sources['x']=x[:nsources]
+        self.sources['y']=y[:nsources]
+        self.sources['flux']=f[:nsources]
+        print "Source fluxes = %s" % sorted(self.sources['flux'])
         self.nsources=nsources
         self.radius=radius
 
@@ -823,33 +792,24 @@ class TelPiercings:
         self.npiercings=0
         self.hiono=400
     
-    def plot(self, rmax=70, rcore=70):
+    def plot(self, rmax=70):
         plt.clf()
         plt.title(self.name)
         plt.xlabel('X (km)')
         plt.ylabel('Y (km)')
-        r2=self.piercings['x']*self.piercings['x']+self.piercings['y']*self.piercings['y']
-        npierce=len(r2>(rmax*rmax))
-        P=numpy.zeros([npierce,2])
-        P[...,0]=self.piercings['x']
-        P[...,1]=self.piercings['y']
-        distancemat=numpy.sort(sd.pdist(P))
-        iondist=numpy.median(distancemat[:npierce])
-        plt.plot(self.piercings['x'], self.piercings['y'], '.')
+        x=self.piercings['x'][self.piercings['flux']>0.0]
+        y=self.piercings['y'][self.piercings['flux']>0.0]
+        r2=x*x+y*y
+        plt.plot(x, y, '.')
         plt.axes().set_aspect('equal')
         circ=plt.Circle((0,0), radius=rmax, color='g', fill=False)
         fig = plt.gcf()
         fig.gca().add_artist(circ)
-        circcore=plt.Circle((0,0), radius=rcore, color='r', fill=False)
-        fig = plt.gcf()
-        fig.gca().add_artist(circcore)
-        maxaxis=max(numpy.max(abs(self.piercings['x'])), numpy.max(abs(self.piercings['y'])))
-        plt.axes().set_xlim([-maxaxis,maxaxis])
-        plt.axes().set_ylim([-maxaxis,maxaxis])
         plt.show()
         plt.savefig('%s.pdf' % self.name)   
         
-    def construct(self, sources, array, rmin=1, hiono=300, rmax=200.0, weight=1.0/0.66545):
+    # weight in the inverse variance of the visibility noise in 10s
+    def construct(self, sources, array, weight, hiono=300):
         self.hiono=hiono
         self.npiercings=sources.nsources*array.nstations
         self.name='%s_sources%d_PC' % (array.name, sources.nsources)
@@ -862,21 +822,20 @@ class TelPiercings:
         for source in range(sources.nsources):
             self.piercings['x'][source*nstations:(source+1)*nstations]=self.hiono*sources.sources['x'][source]+array.stations['x']
             self.piercings['y'][source*nstations:(source+1)*nstations]=self.hiono*sources.sources['y'][source]+array.stations['y']
-            r2=(self.piercings['x'][source*nstations:(source+1)*nstations])**2 + (self.piercings['y'][source*nstations:(source+1)*nstations])**2
             self.piercings['flux'][source*nstations:(source+1)*nstations]=sources.sources['flux'][source]
-            self.piercings['weight'][source*nstations:(source+1)*nstations]=sources.sources['flux'][source]**2*weight**2
-            self.piercings['weight'][source*nstations:(source+1)*nstations][r2>=(rmax)**2]=0.0
+            self.piercings['weight'][source*nstations:(source+1)*nstations]=(sources.sources['flux'][source])**2*weight
 
     def assess(self, nnoll=20, rmax=40.0, doplot=True):
         x=self.piercings['x']
         y=self.piercings['y']
-        A=numpy.zeros([self.npiercings, nnoll])
+        r=numpy.sqrt(x*x+y*y)
+        weight=numpy.sqrt(self.piercings['weight'])[r<rmax]
+        x=x[r<rmax]
+        y=y[r<rmax]
         r=numpy.sqrt(x*x+y*y)
         phi=numpy.arctan2(y,x)
-        pb=numpy.exp(-numpy.log(0.01)*(r/rmax)**2) # Model out to 1% of PB
-        pb[r>rmax]=0.0
-        # This should be pb * SNR in gain solution
-        weight=pb*numpy.sqrt(self.piercings['weight'])
+        self.npiercings=len(r)
+        A=numpy.zeros([self.npiercings, nnoll])
         for noll in range(nnoll):
             A[:,noll]=weight*zernike.zernikel(noll,r/rmax,phi)
         Covar_A=numpy.zeros([nnoll, nnoll])
