@@ -31,8 +31,8 @@ class sources:
         return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6} 
 
 #  Simpler version
-    def tnoise(self, freq=1e8, time=10000.0*3600.0):
-        scale=numpy.sqrt(10000.0*3600.0/time)
+    def tnoise(self, freq=1e8, time=10000.0*3600.0, bandwidth=1e5):
+        scale=numpy.sqrt(10000.0*3600.0/time)*numpy.sqrt(bandwidth/1e5)
         if freq<7.5e7:
             return  scale*25.1e-6
         else:

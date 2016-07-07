@@ -1,19 +1,16 @@
-import numpy
-import math
-import scipy
-import matplotlib
-import random
-import matplotlib.pyplot as plt
-from IPython.display import clear_output, display, HTML
-import matplotlib.pylab as pylab
 import csv
-import zernike
-import numpy as np
-import scipy.spatial.distance as sd 
+import math
+import random
+
+import numpy
+import scipy.spatial.distance as sd
 from scipy import linalg
-from mst import * 
-from teliono import TelIono
+from scipy.misc import imread
+
+import zernike
+from mst import *
 from sources import sources
+
 
 #random.seed(781490893)
 
@@ -34,7 +31,7 @@ class TelMask:
         self.name=''
         
     def readMask(self, maskfile='Mask_BoolardyStation.png'):
-        self.mask = scipy.misc.imread('Mask_BoolardyStation.png')
+        self.mask = imread('Mask_BoolardyStation.png')
         self.center={}
         self.center['x']=self.mask.shape[0]/2
         self.center['y']=self.mask.shape[1]/2
@@ -129,7 +126,7 @@ class TelArray:
             plotfile='%s_Array.pdf' % self.name
         plt.show()
         plt.savefig(plotfile)
-        print "%s has %d" % (self.name, len(self.stations['x']))
+        print( "%s has %d" % (self.name, len(self.stations['x'])))
     
     def add(self, a1, a2, name):
         a=TelArray()
@@ -421,6 +418,12 @@ class TelArray:
                         newstations['x'][station]=x
                         newstations['y'][station]=y
         self.stations=newstations
+
+    def addcore(self, weight=1.0):
+        numpy.append(self.stations['x'], [0.0])
+        numpy.append(self.stations['y'], [0.0])
+        numpy.append(self.stations['weight'], [0.0])
+        print("Extended array to %d stations including the single core" % self.nstations)
 
     def readCSV(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv', rhalo=40, recenter=False, weight=1.0):
         self.mask=TelMask()
@@ -774,7 +777,7 @@ class TelSources:
         self.sources['x']=x[:nsources]
         self.sources['y']=y[:nsources]
         self.sources['flux']=f[:nsources]
-        print "Source fluxes = %s" % sorted(self.sources['flux'])
+        print("Source fluxes = %s" % sorted(self.sources['flux']))
         self.nsources=nsources
         self.radius=radius
 
@@ -800,7 +803,7 @@ class TelPiercings:
         x=self.piercings['x'][self.piercings['flux']>0.0]
         y=self.piercings['y'][self.piercings['flux']>0.0]
         r2=x*x+y*y
-        plt.plot(x, y, '.')
+        plt.plot(x, y, ',')
         plt.axes().set_aspect('equal')
         circ=plt.Circle((0,0), radius=rmax, color='g', fill=False)
         fig = plt.gcf()
@@ -823,25 +826,29 @@ class TelPiercings:
             self.piercings['x'][source*nstations:(source+1)*nstations]=self.hiono*sources.sources['x'][source]+array.stations['x']
             self.piercings['y'][source*nstations:(source+1)*nstations]=self.hiono*sources.sources['y'][source]+array.stations['y']
             self.piercings['flux'][source*nstations:(source+1)*nstations]=sources.sources['flux'][source]
-            self.piercings['weight'][source*nstations:(source+1)*nstations]=(sources.sources['flux'][source])**2*weight
+            self.piercings['weight'][source*nstations:(source+1)*nstations]=\
+                (sources.sources['flux'][source])**2*array.stations['weight']
 
-    def assess(self, nnoll=20, rmax=40.0, doplot=True):
+    def assess(self, nnoll=20, rmax=40.0, doplot=True, limit=0.95):
         x=self.piercings['x']
         y=self.piercings['y']
         r=numpy.sqrt(x*x+y*y)
-        weight=numpy.sqrt(self.piercings['weight'])[r<rmax]
-        x=x[r<rmax]
-        y=y[r<rmax]
+        weight=numpy.sqrt(self.piercings['weight'])[r<limit*rmax]
+        x=x[r<limit*rmax]
+        y=y[r<limit*rmax]
         r=numpy.sqrt(x*x+y*y)
         phi=numpy.arctan2(y,x)
         self.npiercings=len(r)
-        A=numpy.zeros([self.npiercings, nnoll])
+        A=numpy.zeros([len(r), nnoll], dtype='float')
         for noll in range(nnoll):
             A[:,noll]=weight*zernike.zernikel(noll,r/rmax,phi)
+
+        print("Maximum in A matrix = %.1f" % numpy.max(A))
         Covar_A=numpy.zeros([nnoll, nnoll])
-        for nnol1 in range(nnoll):
-            for nnol2 in range(nnoll):
-                Covar_A[nnol1,nnol2]=numpy.sum(A[...,nnol1]*A[...,nnol2])/float(nnoll)
+        print("Shape of A = %s" % str(A.shape))
+        Covar_A=numpy.dot(A.T, A)
+        print("Shape of A^T A = %s" % str(Covar_A.shape))
+        # The singular value analysis is relatively cheap
         U,s,Vh = linalg.svd(Covar_A)
         
         if doplot:
@@ -872,6 +879,85 @@ class TelPiercings:
         return np.array(s)
 
 
-        
-        
-    
+class TelArrayPiercing:
+    def _init_(self):
+        self.name = 'ArrayPiercings'
+        self.npiercings = 0
+        self.hiono = 300
+
+
+    def assess(self, sources, array, rmax=40.0, nnoll=100, wavelength=3.0, hiono=300, limit=0.95,
+               doplot=True):
+        nstations = array.nstations
+        npiercings = 4 * sources.nsources * nstations * nstations
+        print("expect to generate at most %d equations" % (npiercings))
+        A=numpy.zeros([npiercings, nnoll])
+        self.name = '%s_sources%d_PC' % (array.name, sources.nsources)
+
+        x = array.stations['x']
+        y = array.stations['y']
+        flux = sources.sources['flux']
+        weight = 1.0 #sources.sources['weight']
+        l = sources.sources['x']
+        m = sources.sources['y']
+        piercing = 0
+        for source in range(sources.nsources):
+            for station1 in range(nstations):
+                for station2 in range(nstations):
+                    dx1 = hiono * l[source] + x[station1]
+                    dy1 = hiono * m[source] + y[station1]
+                    r1=numpy.sqrt(dx1**2+dy1**2)
+                    dx2 = hiono * l[source] + x[station2]
+                    dy2 = hiono * m[source] + y[station2]
+                    r2=numpy.sqrt(dx2**2+dy2**2)
+                    if r1<limit*rmax and r2 < limit*rmax:
+                        phi1 = numpy.arctan2(dy1, dx1)
+                        phi2 = numpy.arctan2(dy2, dx2)
+                        aphase1 = + 2.0 * numpy.pi * (x[station1] * l[source] +
+                                                    y[station1] * m[source]) / wavelength
+                        aphase2 = - 2.0 * numpy.pi * (x[station2] * l[source] +
+                                                    y[station2] * m[source]) / wavelength
+                        for noll in range(nnoll):
+                            z1 = weight * flux[source] * zernike.zernikel(noll, r1 / rmax, phi1)
+                            A[piercing, noll]   = math.cos(aphase1) * z1
+                            A[piercing+1, noll] = math.sin(aphase1) * z1
+
+                            z2 = weight * flux[source] * zernike.zernikel(noll, r2 / rmax, phi2)
+                            A[piercing+2, noll] = math.cos(aphase2) * z2
+                            A[piercing+3, noll] = math.sin(aphase2) * z2
+                        piercing = piercing + 4
+
+        print("Maximum in A matrix = %.1f" % numpy.max(A))
+        Covar_A = numpy.zeros([nnoll, nnoll])
+        print("Shape of A = %s" % str(A.shape))
+        Covar_A = numpy.dot(A.T, A)
+        print("Shape of A^T A = %s" % str(Covar_A.shape))
+        # The singular value analysis is relatively cheap
+        U, s, Vh = linalg.svd(Covar_A)
+
+        if doplot:
+            plt.clf()
+            plt.title('%s A' % (self.name))
+            plt.xlabel('Noll number')
+            plt.ylabel('Piercing number')
+            plt.imshow(numpy.sqrt(abs(A)), interpolation='nearest', origin='lower')
+            plt.colorbar()
+            plt.show()
+            plt.savefig('%s_A.pdf' % (self.name))
+            plt.clf()
+            plt.title('%s Covar A' % (self.name))
+            plt.xlabel('Noll number')
+            plt.ylabel('Noll number')
+            plt.imshow(numpy.sqrt(abs(Covar_A)), interpolation='nearest', origin='lower')
+            plt.colorbar()
+            plt.show()
+            plt.savefig('%s_Covar_A.pdf' % (self.name))
+            plt.clf()
+            plt.title('%s U' % (self.name))
+            plt.ylabel('Noll number')
+            plt.xlabel('Noll number')
+            plt.imshow(numpy.sqrt(abs(U)), interpolation='nearest', origin='lower')
+            plt.colorbar()
+            plt.show()
+            plt.savefig('%s_U.pdf' % (self.name))
+        return np.array(s)

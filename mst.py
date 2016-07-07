@@ -37,7 +37,7 @@ def minimum_spanning_tree(X, copy_X=True):
  
 def test_mst():
     P = np.random.uniform(size=(50, 2))
-    print P
+    print(P)
  
     X = squareform(pdist(P))
     edge_list = minimum_spanning_tree(X)

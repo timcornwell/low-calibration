@@ -41,9 +41,9 @@ def zernike_rad(m, n, rho):
 	if ((n-m) % 2):
 		return rho*0.0
 	
-	pre_fac = lambda k: (-1.0)**k * fac(n-k) / ( fac(k) * fac( (n+m)/2.0 - k ) * fac( (n-m)/2.0 - k ) )
-	
-	return sum(pre_fac(k) * rho**(n-2.0*k) for k in xrange((n-m)/2+1))
+	pre_fac = lambda k: int (-1.0)**k * fac(n-k) / ( fac(k) * fac( (n+m)/2.0 - k ) * fac( (n-m)/2.0 - k ) )
+
+	return sum(pre_fac(k) * rho**(n-2*k) for k in range((n-m)//2+1))
 
 def zernike(m, n, rho, phi):
 	"""
