@@ -19,8 +19,12 @@ http://creativecommons.org/licenses/by-sa/3.0/
 ### Libraries
 
 import numpy as N
-from scipy.misc import factorial as fac
+from scipy.misc import factorial as facbackend
+from functools import lru_cache
 
+@lru_cache(maxsize=None)
+def fac(n):
+    return facbackend(n)
 
 ### Init functions
 def zernike_rad(m, n, rho):
@@ -93,3 +97,4 @@ def noll_to_nm(j):
 
     m = -n + 2 * j
     return m, n
+

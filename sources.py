@@ -26,7 +26,7 @@ class sources:
     def integratedflux(self, s=1.0, freq=1e8, smax=10000.0):
         return (1.7/0.7)*numpy.power(freq/1.4e9, 0.7)*9000.0*(numpy.power(s, -0.7)-numpy.power(smax, -0.7))
         
-# Spot values from L1
+# Spot values from BDv1
     def noise(self):
         return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6} 
 

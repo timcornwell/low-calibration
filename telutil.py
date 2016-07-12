@@ -9,7 +9,7 @@ from scipy.misc import imread
 
 from mst import *
 from sources import sources
-from zernike import *
+from zernikecache import *
 
 
 # random.seed(781490893)
@@ -435,7 +435,7 @@ class TelArray:
         numpy.append(self.stations['weight'], [0.0])
         print("Extended array to %d stations including the single core" % self.nstations)
 
-    def readCSV(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv',
+    def readCSV(self, name='LOWBD', rcore=0.0, csvfile='SKA-low_config_baseline_design_arm_stations_2013apr30.csv',
                 rhalo=40, recenter=False, weight=1.0):
         self.mask = TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
@@ -447,7 +447,7 @@ class TelArray:
         self.diameter = 35.0
         meanx = 0
         meany = 0
-        with open(l1def, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 meanx = meanx + float(row[0])
@@ -461,7 +461,7 @@ class TelArray:
         f.close()
         self.nstations = 0
         scale = 0.001
-        with open(l1def, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 x = scale * (float(row[0]) - meanx)
@@ -475,7 +475,7 @@ class TelArray:
         self.stations['y'] = numpy.zeros(self.nstations)
         self.stations['weight'] = weight * numpy.ones(self.nstations)
         station = 0
-        with open(l1def, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 x = scale * (float(row[0]) - meanx)
@@ -488,9 +488,9 @@ class TelArray:
         self.nstations = station
         self.stations['weight'] = weight * numpy.ones(self.nstations)
 
-    def readLOWBD(self, name='LOWBD', rcore=0.0, l1def='SKA-low_config_baseline_design_arm_stations_2013apr30.csv',
+    def readLOWBD(self, name='LOWBD', rcore=0.0, csvfile='SKA-low_config_baseline_design_arm_stations_2013apr30.csv',
                   weight=1.0):
-        return self.readCSV(name, rcore, l1def, weight=weight)
+        return self.readCSV(name, rcore, csvfile, weight=weight)
 
     def saveCSV(self, filename='LOWBD.csv'):
         with open(filename, 'wb') as fp:
@@ -514,7 +514,7 @@ class TelArray:
                     Re * numpy.pi)
                 rowwriter.writerow([name, long, lat, height0])
 
-    def readLOWL1(self, name='LOWL1', rcore=0.0, l1def='L1_configuration.csv', weight=1.0):
+    def readLOWL1(self, name='LOWL1', rcore=0.0, csvfile='L1_configuration.csv', weight=1.0):
         self.mask = TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         self.name = name
@@ -525,7 +525,7 @@ class TelArray:
         self.diameter = 35.0
         meanx = 0
         meany = 0
-        with open(l1def, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 meanx = meanx + float(row[1])
@@ -536,7 +536,7 @@ class TelArray:
         f.close()
         self.nstations = 0
         scale = 6.371e6 * numpy.pi / 180000.0
-        with open(l1def, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 x = scale * (float(row[1]) - meanx) * numpy.cos(meanx * numpy.pi / 180.0)
@@ -550,7 +550,7 @@ class TelArray:
         self.stations['weight'] = weight * numpy.ones(self.nstations)
         station = 0
         scale = 6.371e6 * numpy.pi / 180000.0
-        with open(l1def, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 x = scale * (float(row[1]) - meanx) * numpy.cos(meanx * numpy.pi / 180.0)
@@ -910,49 +910,70 @@ class TelArrayPiercing:
         self.hiono = 300
 
     def assess(self, sources, array, rmax=40.0, nnoll=100, wavelength=3.0, hiono=300, weight=1.0, limit=0.9,
-               doplot=True):
+               rmin=0.3, doplot=True, doFresnel=True):
         nstations = array.nstations
-        npiercings = 4 * sources.nsources * nstations * nstations
+        npiercings = 2 * nstations * nstations
         print("Will generate %d constraint equations" % (npiercings))
         self.name = '%s_sources%d_PC' % (array.name, sources.nsources)
+        if doFresnel:
+            print("Using Fraunhoffer and Fresnel terms")
+        else:
+            print("Fraunhoffer term only")
 
         x = array.stations['x']
         y = array.stations['y']
+
+        P = numpy.zeros([len(x), len(x)])
+        for station in range(len(x)):
+            P[:, station] = numpy.sqrt((x - x[station]) ** 2 + (y - y[station]) ** 2)
+        print(P)
+
         flux = sources.sources['flux']
-        weights = weight * numpy.ones(len(x))
         l = sources.sources['x']
         m = sources.sources['y']
+
+        # Calculate phase from source to station: this loop is inexpensive
+        phasor = numpy.ones([sources.nsources, nstations], dtype='complex')
         for source in range(sources.nsources):
-            A = numpy.zeros([nnoll, 4, nstations, nstations])
-            dx = hiono * l[source] + x
-            dy = hiono * m[source] + y
-            r = numpy.sqrt(dx ** 2 + dy ** 2)
-            phi = numpy.arctan2(dy, dx)
-            aphase = + 2.0 * numpy.pi * (x * l[source] + y * m[source]) / wavelength
-            phasor = numpy.sqrt(flux[source]) * numpy.exp(+1j * aphase)
-            weights[r > limit * rmax] = 0.0
-
-            for noll in range(nnoll):
-                z = zernikel(noll, r / rmax, phi)
-                z[r > limit * rmax] = 0.0
-                vphasor = numpy.outer(phasor, weights * z * phasor)
-                A[noll, 0, :, :] = + numpy.real(vphasor)
-                A[noll, 1, :, :] = + numpy.imag(vphasor)
-                A[noll, 2, :, :] = - numpy.real(vphasor)
-                A[noll, 3, :, :] = - numpy.imag(vphasor)
-            A = numpy.reshape(A, [nnoll, 4 * nstations * nstations])
-            if source == 0:
-                print("Finished source %d, Maximum in A matrix = %s, initialising normal equations" % (source,
-                                                                                                       str(numpy.max(
-                                                                                                           A))))
-                Covar_A = numpy.dot(A, A.T)
+            aphase = + 2.0 * 1000.0 * numpy.pi * (x * l[source] + y * m[source]) / wavelength
+            if doFresnel:
+                fx = hiono * l[source] + x
+                fy = hiono * m[source] + y
+                fphase = + 1000.0 * numpy.pi * (fx ** 2 + fy ** 2) / (wavelength * hiono)
+                phasor[source, :] = numpy.sqrt(flux[source]) * numpy.exp(+1j * (aphase + fphase))
             else:
-                print("Finished source %d, Maximum in A matrix = %s, adding to normal equations" % (source,
-                                                                                                    str(numpy.max(
-                                                                                                        A))))
-                Covar_A += numpy.dot(A, A.T)
+                phasor[source, :] = numpy.sqrt(flux[source]) * numpy.exp(+1j * aphase)
+        print('Finished calculating phasors')
 
-        print("Shape of A^T A = %s" % str(Covar_A.shape))
+        # Calculate the summed visibility: this is very time consuming since it uses the
+        # phase from each source to each station, multiplied by the appropriate Zernicke.
+        A = numpy.zeros([nnoll, 2, nstations, nstations])
+        for noll in range(nnoll):
+            print('Calculating noll index %d' % (noll))
+            for source in range(sources.nsources):
+                fx = hiono * l[source] + x
+                fy = hiono * m[source] + y
+                r = numpy.sqrt(fx ** 2 + fy ** 2)
+                phi = numpy.arctan2(fy, fx)
+                # This is a time sink unless factorial is cached
+                z = zernikel(noll, r / rmax, phi)
+                z[r > rmax] = 0.0
+                # All the previous operations are per station. In the code below we
+                # make the transition to baselines using the numpy.outer product
+                # This outer product is inexpensive but it is called many times
+                vphasor = weight * numpy.outer(phasor[source, :], z * numpy.conj(phasor[source, :]))
+                vphasor[P < rmin] = 0.0
+                # In this approach, we only get access to the summed effects of all sources
+                # as seen through the screen and correlated with another station/.
+                A[noll, 0, :, :] += numpy.real(vphasor)
+                A[noll, 1, :, :] += numpy.imag(vphasor)
+        # This reshape takes more time than it probably should!!!
+        A = numpy.reshape(A, [nnoll, 2 * nstations * nstations])
+        print("Maximum of A = %.2f" % numpy.max(numpy.abs(A)))
+        # This dot product takes a long time (minutes) but is only called once
+        Covar_A = numpy.dot(A, A.T)
+        print("Shape of A A^T = %s" % str(Covar_A.shape))
+
         # The singular value analysis is relatively cheap
         U, s, Vh = linalg.svd(Covar_A)
 

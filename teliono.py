@@ -27,3 +27,7 @@ class TelIono:
         """ Time on sky to obtain given dynamic range
         """
         return tiono * (DR/1.304)**2 * numpy.power(J, -numpy.sqrt(3)/2.0) * numpy.power(B/(r0*(3.0/wavelength)), 5.0/3.0)
+
+    def J(self, DR=1e5, r0=44.0, B=51.4, tiono=10, tsky=365.0*24.0*3600.0/2.0, wavelength=3.0):
+        return numpy.power((tsky/tiono)*1.0/((DR/1.304)**2 * numpy.power(B/(r0*(3.0/wavelength)),
+                                                                         5.0/3.0)),-2.0/numpy.sqrt(3))
