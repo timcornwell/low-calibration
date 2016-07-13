@@ -26,6 +26,10 @@ from functools import lru_cache
 def fac(n):
     return facbackend(n)
 
+@lru_cache(maxsize=None)
+def pre_fac(k, n, m):
+    return N.power(int(-1),  k) * fac(n - k) / (fac(k) * fac((n + m) / 2.0 - k) * fac((n - m) / 2.0 - k))
+
 ### Init functions
 def zernike_rad(m, n, rho):
     """
@@ -44,11 +48,11 @@ def zernike_rad(m, n, rho):
 
     if ((n - m) % 2):
         return rho * 0.0
+    # cache the pre-factors, and use numpy.power
+    #    pre_fac = lambda k: int(-1.0) ** k * fac(n - k) / (fac(k) * fac((n + m) / 2.0 - k) * fac((n - m) / 2.0 - k))
 
-    pre_fac = lambda k: int(-1.0) ** k * fac(n - k) / (fac(k) * fac((n + m) / 2.0 - k) * fac((n - m) / 2.0 - k))
-
-    return (sum(pre_fac(k) * rho ** (n - 2 * k) for k in range((n - m) // 2 + 1)) /
-            sum(pre_fac(k)                      for k in range((n - m) // 2 + 1)))
+    return (sum(pre_fac(k, n, m) * N.power(rho, (n - 2 * k)) for k in range((n - m) // 2 + 1)) /
+            sum(pre_fac(k, n, m)                             for k in range((n - m) // 2 + 1)))
 
 
 def zernike(m, n, rho, phi):
@@ -96,5 +100,5 @@ def noll_to_nm(j):
         j -= n
 
     m = -n + 2 * j
-    return m, n
+    return n, m
 
