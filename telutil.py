@@ -11,7 +11,6 @@ from mst import *
 from sources import sources
 from zernikecache import *
 
-
 # random.seed(781490893)
 
 class TelUtils:
@@ -913,7 +912,9 @@ class TelArrayPiercing:
                rmin=0.3, doplot=True, doFresnel=True):
         nstations = array.nstations
         nconstraints = 2 * nstations * nstations
-        print("Will generate %d constraint equations" % (nconstraints))
+        print("There are %d visibility-based constraint equations" % (nconstraints))
+        print("Searching up to %d singular vectors" % (nnoll))
+
         self.name = '%s_sources%d_PC' % (array.name, sources.nsources)
         if doFresnel:
             print("Using Fraunhoffer and Fresnel terms")
@@ -950,10 +951,9 @@ class TelArrayPiercing:
         # a huge design matrix all at once.
         for station in range(nstations):
             print('Calculating station %d to all other stations' % (station))
-            A = numpy.zeros([nnoll, 2, nstations])
+            A = numpy.zeros([nnoll, nstations, 2])
             for noll in range(nnoll):
                 for source in range(sources.nsources):
-                    dist=numpy.sqrt((x-x[station])**2+(y-y[station])**2)
                     fx = hiono * l[source] + x
                     fy = hiono * m[source] + y
                     r = numpy.sqrt(fx ** 2 + fy ** 2)
@@ -964,27 +964,21 @@ class TelArrayPiercing:
                     # All the previous operations are per station. In the code below we
                     # make the transition to baselines
                     vphasor = weight * phasor[source, :] * z * numpy.conj(phasor[source, station])
-                    vphasor[dist < rmin] = 0.0
+                    vphasor[P[:,station] < rmin] = 0.0
                     # In this approach, we only get access to the summed effects of all sources
                     # as seen through the screen and correlated with another station.
-                    A[noll, 0, :] += numpy.real(vphasor)
-                    A[noll, 1, :] += numpy.imag(vphasor)
+                    A[noll, :, 0] += numpy.real(vphasor)
+                    A[noll, :, 1] += numpy.imag(vphasor)
             # Reshape so that the dot product can work. This sums over the last chunk of
             # visibilities.
-            A = numpy.reshape(A, [nnoll, 2 * nstations])
+            A = numpy.reshape(A, [nnoll, nstations * 2])
             if station == 0:
                 Covar_A = numpy.dot(A, A.T)
             else:
                 Covar_A += numpy.dot(A, A.T)
 
         print("Shape of A A^T = %s" % str(Covar_A.shape))
-        # The singular value analysis is relatively cheap
-        print("Performing SVD of A A^T")
-#        U, s, Vh = linalg.svd(Covar_A)
-        s, U = linalg.eig(Covar_A)
-        s = numpy.real(s)
-        s[s<0.0]=0.0
-        U = numpy.real(U)
+        U, s, Vh = linalg.svd(Covar_A)
 
         if doplot:
             plt.clf()
