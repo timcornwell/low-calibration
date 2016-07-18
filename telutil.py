@@ -951,12 +951,45 @@ class TelArrayPiercing:
         # phase from each source to each station, multiplied by the appropriate Zernicke.
         # We do this by station and accumulate the covariance matrix so as not to form
         # a huge design matrix all at once.
-        Covar_A = numpy.zeros([nnoll, nnoll])
-        for station in range(nstations):
-            print('Calculating station %d to all other stations' % (station))
-            A = numpy.zeros([nnoll, nstations, 2])
-            with pymp.Parallel(nproc) as p:
-                for noll in p.range(nnoll):
+        if nproc:
+            print('Using pymp with %d processes' % nproc)
+            Covar_A = numpy.zeros([nnoll, nnoll])
+            for station in range(nstations):
+                print('Calculating station %d to all other stations' % (station))
+                # The A array has to be shared and locked across all threads
+                A = pymp.shared.array([nnoll, nstations, 2])
+                A[:,:,:]=0.0
+                with pymp.Parallel(nproc) as p:
+                    # The calculations are done in discrete ranges of the noll parameter
+                    for noll in p.range(nnoll):
+                        for source in range(sources.nsources):
+                            # This next part is done on nstations-long vectors
+                            fx = hiono * l[source] + x
+                            fy = hiono * m[source] + y
+                            r = numpy.sqrt(fx ** 2 + fy ** 2)
+                            phi = numpy.arctan2(fy, fx)
+                            # This is a time sink: zernikecache must be optimised
+                            z = zernikel(noll, r / rmax, phi)
+                            z[r > rmax] = 0.0
+                            # All the previous operations are per station. In the code below we
+                            # make the transition to baselines
+                            vphasor = weight * phasor[source, :] * z * numpy.conj(phasor[source, station])
+                            vphasor[P[:,station] < rmin] = 0.0
+                            # In this approach, we only get access to the summed effects of all sources
+                            # as seen through the screen and correlated with another station.
+                            if p.lock:
+                                A[noll, :, 0] += numpy.real(vphasor)
+                                A[noll, :, 1] += numpy.imag(vphasor)
+                # Reshape so that the dot product can work. 
+                A = numpy.reshape(A, [nnoll, nstations * 2])
+                Covar_A += numpy.dot(A, A.T)
+        else:
+            print('Using serial processing')
+            Covar_A = numpy.zeros([nnoll, nnoll])
+            for station in range(nstations):
+                print('Calculating station %d to all other stations' % (station))
+                A = numpy.zeros([nnoll, nstations, 2])
+                for noll in range(nnoll):
                     for source in range(sources.nsources):
                         fx = hiono * l[source] + x
                         fy = hiono * m[source] + y
@@ -971,18 +1004,16 @@ class TelArrayPiercing:
                         vphasor[P[:,station] < rmin] = 0.0
                         # In this approach, we only get access to the summed effects of all sources
                         # as seen through the screen and correlated with another station.
-                        with p.lock:
-                            A[noll, :, 0] += numpy.real(vphasor)
-                            A[noll, :, 1] += numpy.imag(vphasor)
-            # Reshape so that the dot product can work. This sums over the last chunk of
-            # visibilities.
-            A = numpy.reshape(A, [nnoll, nstations * 2])
-            Covar_A += numpy.dot(A, A.T)
+                        A[noll, :, 0] += numpy.real(vphasor)
+                        A[noll, :, 1] += numpy.imag(vphasor)
+                # Reshape so that the dot product can work.
+                A = numpy.reshape(A, [nnoll, nstations * 2])
+                Covar_A += numpy.dot(A, A.T)
 
         print("Shape of A A^T = %s" % str(Covar_A.shape))
         U, s, Vh = linalg.svd(Covar_A)
 
-        if doplot:
+        if True:
             plt.clf()
             plt.title('%s Covar A' % (self.name))
             plt.xlabel('Noll number')

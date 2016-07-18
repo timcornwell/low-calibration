@@ -2,6 +2,7 @@
 import numpy
 import sys
 from collections import defaultdict
+import multiprocessing
 
 from sources import sources
 
@@ -34,6 +35,8 @@ def getinputs():
     sys.stdout = Logger("%s.log" % name)
     print("Copying output to %s" % "%s.log" % name)
 
+    nproc = int(d.get("nproc", 2 * multiprocessing.cpu_count())[0])
+    print("Using %d processes in inner loop" % (nproc))
     nstations = 512
     nnoll = int(d.get("Noll", 1500)[0])
 
@@ -52,7 +55,7 @@ def getinputs():
     # Frequency
     freq = 3.0e8 / wavelength
     print("Observing frequency = %.2f MHz" % (freq / 1e6))
-    bandwidth = float(d.get("bandwidth", 1e5))
+    bandwidth = float(d.get("bandwidth", 1e5)[0])
     print("Observing bandwidth = %.2f MHz" % (bandwidth / 1e6))
 
     tiono = float(d.get("hiono", 10.0 * numpy.power(wavelength / 3.0, -5.0 / 6.0)))
@@ -68,7 +71,7 @@ def getinputs():
     doplot = d.get('doplot', True)
     doFresnel = d.get('doFresnel', True)
     return name, nstations, nnoll, wavelength, stationdiameter, rcore, rmin, hiono, HWZ, FOV, rhalo, rmax, freq, \
-           bandwidth, tiono, configs, ntrials, doplot, doFresnel
+           bandwidth, tiono, configs, ntrials, doplot, doFresnel, nproc
 
 
 def calculatenoise(tiono, freq, bandwidth, nstations, stationdiameter, FOV):

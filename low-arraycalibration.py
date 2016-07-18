@@ -2,7 +2,6 @@
 
 # ### Perform Zernike polynominal analysis of SKA1-LOW and LOFAR calibration
 
-import multiprocessing
 import subprocess
 
 import pylab
@@ -17,14 +16,12 @@ pylab.rcParams['figure.figsize'] = (8.0, 8.0)
 
 print("Working from Git repository %s" % subprocess.check_output(["git", "describe", "--long", "--all"]))
 
-nproc = 2 * multiprocessing.cpu_count()
-print("Using %d processes in inner loop" % (nproc))
 #######################################################################################################
 ## Start of real processing
 
 # Get the inputs from the arguments of the script invocation
 name, nstations, nnoll, wavelength, stationdiameter, rcore, rmin, hiono, HWZ, FOV, rhalo, rmax, freq, \
-bandwidth, tiono, configs, ntrials, doplot, doFresnel = getinputs()
+bandwidth, tiono, configs, ntrials, doplot, doFresnel, nproc = getinputs()
 
 imgnoise, visnoise, nsources, weight = calculatenoise(tiono, freq, bandwidth, nstations, stationdiameter, FOV)
 
