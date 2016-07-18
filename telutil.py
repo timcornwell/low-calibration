@@ -911,7 +911,7 @@ class TelArrayPiercing:
         self.hiono = 300
 
     def assess(self, sources, array, rmax=40.0, nnoll=100, wavelength=3.0, hiono=300, weight=1.0, limit=0.9,
-               rmin=0.3, doplot=True, doFresnel=True):
+               rmin=0.3, doplot=True, doFresnel=True, nproc=4):
         nstations = array.nstations
         nconstraints = 2 * nstations * nstations
         print("There are %d visibility-based constraint equations" % (nconstraints))
@@ -955,14 +955,14 @@ class TelArrayPiercing:
         for station in range(nstations):
             print('Calculating station %d to all other stations' % (station))
             A = numpy.zeros([nnoll, nstations, 2])
-            with pymp.Parallel(4) as p:
+            with pymp.Parallel(nproc) as p:
                 for noll in p.range(nnoll):
                     for source in range(sources.nsources):
                         fx = hiono * l[source] + x
                         fy = hiono * m[source] + y
                         r = numpy.sqrt(fx ** 2 + fy ** 2)
                         phi = numpy.arctan2(fy, fx)
-                        # This is a time sink unless factorial is cached
+                        # This is a time sink: zernikecache is optimised because of this
                         z = zernikel(noll, r / rmax, phi)
                         z[r > rmax] = 0.0
                         # All the previous operations are per station. In the code below we
@@ -977,10 +977,7 @@ class TelArrayPiercing:
             # Reshape so that the dot product can work. This sums over the last chunk of
             # visibilities.
             A = numpy.reshape(A, [nnoll, nstations * 2])
-            if station == 0:
-                Covar_A = numpy.dot(A, A.T)
-            else:
-                Covar_A += numpy.dot(A, A.T)
+            Covar_A += numpy.dot(A, A.T)
 
         print("Shape of A A^T = %s" % str(Covar_A.shape))
         U, s, Vh = linalg.svd(Covar_A)
