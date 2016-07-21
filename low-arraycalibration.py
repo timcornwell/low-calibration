@@ -23,7 +23,8 @@ print("Working from Git repository %s" % subprocess.check_output(["git", "descri
 name, nstations, nnoll, wavelength, stationdiameter, rcore, rmin, hiono, HWZ, FOV, rhalo, rmax, freq, \
 bandwidth, tiono, configs, ntrials, doplot, doFresnel, nproc = getinputs()
 
-imgnoise, visnoise, nsources, weight = calculatenoise(tiono, freq, bandwidth, nstations, stationdiameter, FOV)
+imgnoise, visnoise, nsources, weight, gainnoise = calculatenoise(tiono, freq, bandwidth, nstations, stationdiameter,
+                                                                 FOV)
 
 tel, mst = definetel(configs, weight)
 
@@ -33,7 +34,7 @@ for config in tel:
     for nsource in [nsources]:
         print("Processing %s %d sources" % (config, nsource))
         stats[config][nsource] = runtrials(nnoll, ntrials, nsource, tel[config], wavelength,
-                                           stationdiameter, HWZ, bandwidth = bandwidth, nproc=nproc)
+                                           stationdiameter, HWZ, bandwidth = bandwidth, nproc=nproc,smin=10.0*gainnoise)
 
 printstats(stats, mst)
 

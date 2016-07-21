@@ -28,7 +28,6 @@ def getinputs():
     for k, v in ((k.lstrip('-'), v) for k, v in (a.split('=') for a in sys.argv[1:])):
         d[k]=v
 
-    print(d)
     import random
     random.seed(d.get("seed", 781490893))
 
@@ -36,7 +35,6 @@ def getinputs():
     sys.stdout = Logger("%s.log" % name)
     print("Copying output to %s" % "%s.log" % name)
 
-    print(d.get("nproc", multiprocessing.cpu_count()))
     nproc = int(d.get("nproc", multiprocessing.cpu_count()))
     print("Using %d processes in inner loop" % (nproc))
     nstations = 512
@@ -86,9 +84,9 @@ def calculatenoise(tiono, freq, bandwidth, nstations, stationdiameter, FOV):
     imgthreshold = 50.0 * imgnoise
     weight = 1.0 / visnoise ** 2
     print("Weight for visibility = %.1f (1/Jy^2)" % (weight))
-    # Number of sources in the beam abouve 5 sigma in tiono
     nsources = int(FOV * sources().numbers(imgthreshold))
     print("%.1f sources above image threshold (%.4f Jy/beam)" % (nsources, imgthreshold))
+    gainnoise=visnoise/numpy.sqrt(512)
 
-    return imgnoise, visnoise, nsources, weight
+    return imgnoise, visnoise, nsources, weight, gainnoise
 

@@ -14,7 +14,7 @@ class sources:
         return 1.2e-6 * np.power(freq / 3.02e9, -0.7) * np.power(theta/8.0, 10.0/3.0)
 
 #  Integral source counts N(>S) from Condon et al 2012
-    def numbers(self, s=1.0, freq=1e8):
+    def numbersold(self, s=1.0, freq=1e8):
         return numpy.power(freq/1.4e9, 0.7)*9000.0*numpy.power(s, -1.7)
 
 # Randomly chosen strength.         
@@ -25,7 +25,7 @@ class sources:
         return S
                 
 # Integrate S.dNdS over S
-    def integratedflux(self, s=1.0, freq=1e8, smax=10000.0):
+    def integratedfluxold(self, s=1.0, freq=1e8, smax=10000.0):
         return (1.7/0.7)*numpy.power(freq/1.4e9, 0.7)*9000.0*(numpy.power(s, -0.7)-numpy.power(smax, -0.7))
         
 # Spot values from BDv1
@@ -33,12 +33,19 @@ class sources:
 
         return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6}
 
+# Source counts from Bregman (2012) 140 MHz values
+    def numbers(self, flux, freq=1e8):
+        fluxes= [2e-5,     6e-4,   2e-3,   2e-2,   1e-1,   3e-1, 1.7,  20.0]
+        numbers=[4.12e7, 4.45e5, 1.88e5, 2.98e4, 5.92e3, 1.36e3, 81.0, 0.75]
+        s = interpolate.InterpolatedUnivariateSpline(numpy.log10(numpy.array(fluxes)),
+                                                     numpy.log10(numpy.array(numbers)))
+        return (10**s(numpy.log10(flux)))*numpy.power(freq/1.4e9, -0.7)
 
 
 # Spot values for A over T from BDv2
     def tnoise(self, freq=1e8, time=1000.0*3600.0, bandwidth=1e5):
         # These are the single pol values
-        s = interpolate.InterpolatedUnivariateSpline([50, 110, 160, 220, 280, 340],
+        s = interpolate.InterpolatedUnivariateSpline([50,   110,   160, 220, 280, 340],
                                                      [72.0, 380.0, 535, 530, 500, 453])
         SEFD = 1e26 * k / s(freq/1e6)
         RTB = numpy.sqrt(bandwidth*time)

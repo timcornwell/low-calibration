@@ -13,7 +13,7 @@ from teliono import TelIono
 #####
 # ### Define all configs and plot
 
-def runtrials(nnoll, ntrials, nsources, config, wavelength, stationdiameter, HWZ, tsky=10000 * 3600.0, weight=1.0,
+def runtrials(nnoll, ntrials, nsources, config, wavelength, stationdiameter, HWZ, smin, tsky=10000 * 3600.0, weight=1.0,
            snrthreshold=5.0, bandwidth=1e5, nproc=4, doFresnel=True):
 
 
@@ -22,7 +22,7 @@ def runtrials(nnoll, ntrials, nsources, config, wavelength, stationdiameter, HWZ
     Save=0.0
     for trial in range(ntrials):
         ts = TelSources()
-        ts.construct(nsources=nsources, radius=wavelength / stationdiameter)
+        ts.construct(nsources=nsources, smin=smin, radius=wavelength / stationdiameter)
         s = numpy.sqrt(tp.assess(ts, config, nnoll=nnoll, rmax=HWZ, wavelength=3.0, weight=weight,
                                  hiono=300, limit=0.95, doplot=(trial == 0), doFresnel=doFresnel,
                                  nproc=nproc))

@@ -774,7 +774,7 @@ class TelSources:
         self.name = 'Sources'
         self.nsources = 100
     
-    def construct(self, name='Sources', nsources=100, radius=1, smin=0.66545, limit=0.95):
+    def construct(self, name='Sources', nsources=100, radius=1, smin=0.0, limit=0.95):
         """ Construct nsources sources above the flux limit
         """
         self.name = name
@@ -788,6 +788,7 @@ class TelSources:
         pb[r > 0.95 * radius] = 0.0
         f = pb * sources().randomsources(smin=smin, nsources=100 * nsources)
         # Avoid fields with bright sources
+        print("Weakest source is %.3f Jy, brightest source is %.3f" % (smin, 10*smin))
         x = x[f < 10.0 * smin]
         y = y[f < 10.0 * smin]
         f = f[f < 10.0 * smin]
