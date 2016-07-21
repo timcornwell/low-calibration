@@ -961,7 +961,7 @@ class TelArrayPiercing:
                 A[:,:,:]=0.0
                 with pymp.Parallel(nproc) as p:
                     # The calculations are done in discrete ranges of the noll parameter
-                    for noll in p.range(nnoll):
+                    for noll in p.xrange(nnoll):
                         for source in range(sources.nsources):
                             # This next part is done on nstations-long vectors
                             fx = hiono * l[source] + x

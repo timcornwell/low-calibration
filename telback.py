@@ -47,7 +47,7 @@ def printstats(stats, mst):
 
     for config in stats.keys():
         for nsources in stats[config].keys():
-            print("%s, %.1f, %d, %.1f, %d, %.2f, %.1f, %.1f, %.1f" % (config,
+            print("%s, %.1f, %d, %.1f, %d, %.2f, %.1f, %.2f, %.1f" % (config,
                                                                       stats[config][nsources]['bandwidth'],
                                                                       nsources,
                                                                       stats[config][nsources]['s'][0],

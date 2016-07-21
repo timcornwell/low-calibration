@@ -4,6 +4,8 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
+from scipy import interpolate
+from scipy.constants import k, pi, c
 
 class sources:
 #  From Condon et al 2012
@@ -28,11 +30,26 @@ class sources:
         
 # Spot values from BDv1
     def noise(self):
-        return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6} 
+
+        return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6}
+
+
+
+# Spot values for A over T from BDv2
+    def tnoise(self, freq=1e8, time=1000.0*3600.0, bandwidth=1e5):
+        # These are the single pol values
+        s = interpolate.InterpolatedUnivariateSpline([50, 110, 160, 220, 280, 340],
+                                                     [72.0, 380.0, 535, 530, 500, 453])
+        SEFD = 1e26 * k / s(freq/1e6)
+        RTB = numpy.sqrt(bandwidth*time)
+        return SEFD / (2.0 * RTB)
+
 
 #  Simpler version
-    def tnoise(self, freq=1e8, time=10000.0*3600.0, bandwidth=1e5):
-        scale=numpy.sqrt(10000.0*3600.0/time)*numpy.sqrt(1e5/bandwidth)
+    def tnoiseold(self, freq=1e8, time=1000.0*3600.0, bandwidth=1e5):
+        # 144 m2/K, 970, 1070, 1060
+
+        scale=numpy.sqrt(1000.0*3600.0/time)*numpy.sqrt(1e5/bandwidth)
         if freq<7.5e7:
             return  scale*25.1e-6
         else:
