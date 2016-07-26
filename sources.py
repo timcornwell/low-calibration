@@ -1,11 +1,10 @@
 import numpy
 import math
 import random
-import matplotlib.pyplot as plt
 import numpy as np
 
 from scipy import interpolate
-from scipy.constants import k, pi, c
+from scipy.constants import k
 
 class sources:
 #  From Condon et al 2012
@@ -24,16 +23,7 @@ class sources:
             S[i]=smin*math.pow(random.uniform(0,1),-1.0/0.7)
         return S
                 
-# Integrate S.dNdS over S
-    def integratedfluxold(self, s=1.0, freq=1e8, smax=10000.0):
-        return (1.7/0.7)*numpy.power(freq/1.4e9, 0.7)*9000.0*(numpy.power(s, -0.7)-numpy.power(smax, -0.7))
-        
-# Spot values from BDv1
-    def noise(self):
-
-        return {'50':25.1e-6, '110':3.1e-6, '160':3.4e-6, '220':3.4e-6}
-
-# Source counts from Bregman (2012) 140 MHz values
+# Integrated source counts from Bregman (2012) 140 MHz values scaled to actual frequency
     def numbers(self, flux, freq=1e8):
         fluxes= [2e-5,     6e-4,   2e-3,   2e-2,   1e-1,   3e-1, 1.7,  20.0]
         numbers=[4.12e7, 4.45e5, 1.88e5, 2.98e4, 5.92e3, 1.36e3, 81.0, 0.75]
@@ -50,14 +40,3 @@ class sources:
         SEFD = 1e26 * k / s(freq/1e6)
         RTB = numpy.sqrt(bandwidth*time)
         return SEFD / (2.0 * RTB)
-
-
-#  Simpler version
-    def tnoiseold(self, freq=1e8, time=1000.0*3600.0, bandwidth=1e5):
-        # 144 m2/K, 970, 1070, 1060
-
-        scale=numpy.sqrt(1000.0*3600.0/time)*numpy.sqrt(1e5/bandwidth)
-        if freq<7.5e7:
-            return  scale*25.1e-6
-        else:
-            return  scale*3.1e-6
