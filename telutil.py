@@ -563,7 +563,7 @@ class TelArray:
                     self.stations['weight'] = weight * numpy.ones(self.nstations)
                     station = station + 1
 
-    def readLOFAR(self, name='LOFAR', stationtype='S', band='HBA', lfdef='LOFAR.csv', lat=52.7, weight=1):
+    def readLOFAR(self, name='LOFAR', stationtype='S', band='HBA', csvfile='LOFAR.csv', lat=52.7, weight=1.0):
         self.mask = TelMask()
         self.mask.readMask(maskfile='Mask_BoolardyStation.png')
         cs = numpy.cos(numpy.pi * lat / 180.0)
@@ -578,7 +578,7 @@ class TelArray:
         meanx = 0
         meany = 0
         meanz = 0
-        with open(lfdef, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 type = row[0]
@@ -595,7 +595,7 @@ class TelArray:
         self.stations['x'] = numpy.zeros(self.nstations)
         self.stations['y'] = numpy.zeros(self.nstations)
         self.stations['weight'] = numpy.zeros(self.nstations)
-        with open(lfdef, 'rU') as f:
+        with open(csvfile, 'rU') as f:
             reader = csv.reader(f)
             for row in reader:
                 type = row[0]
@@ -696,6 +696,7 @@ class TelArray:
 
     # Evaluate the minimum spanning tree
     def mst(self, doplot=True, plotfile=''):
+        self.nstations=len(self.stations['x'])
         P = numpy.zeros([self.nstations, 2])
         P[..., 0] = self.stations['x']
         P[..., 1] = self.stations['y']
@@ -774,7 +775,7 @@ class TelSources:
         self.name = 'Sources'
         self.nsources = 100
     
-    def construct(self, name='Sources', nsources=100, radius=1, smin=0.0, limit=0.95):
+    def construct(self, name='Sources', nsources=100, radius=1, smin=0.0, limit=0.95, peeling=100.0):
         """ Construct nsources sources above the flux limit
         """
         self.name = name
@@ -788,10 +789,10 @@ class TelSources:
         pb[r > 0.95 * radius] = 0.0
         f = pb * sources().randomsources(smin=smin, nsources=100 * nsources)
         # Avoid fields with bright sources
-        print("Weakest source is %.3f Jy, brightest source is %.3f" % (smin, 10*smin))
-        x = x[f < 10.0 * smin]
-        y = y[f < 10.0 * smin]
-        f = f[f < 10.0 * smin]
+        print("Weakest source is %.3f Jy, brightest source is %.3f" % (smin,  peeling*smin))
+        x = x[f < peeling * smin]
+        y = y[f < peeling * smin]
+        f = f[f < peeling * smin]
         x = x[f > smin]
         y = y[f > smin]
         f = f[f > smin]
@@ -855,7 +856,7 @@ class TelPiercings:
             self.piercings['weight'][source * nstations:(source + 1) * nstations] = \
                 (sources.sources['flux'][source]) ** 2 * array.stations['weight']
 
-    def assess(self, nnoll=20, rmax=40.0, doplot=True, limit=0.95):
+    def assess(self, nnoll=20, rmax=40.0, doplot=True, limit=1.0):
         x = self.piercings['x']
         y = self.piercings['y']
         r = numpy.sqrt(x * x + y * y)
@@ -911,7 +912,8 @@ class TelArrayPiercing:
         self.npiercings = 0
         self.hiono = 300
 
-    def assess(self, sources, array, rmax=40.0, nnoll=100, wavelength=3.0, hiono=300, weight=1.0, limit=0.9,
+
+    def assess(self, sources, array, rmax=40.0, nnoll=100, wavelength=3.0, hiono=300, weight=1.0, limit=1.0,
                rmin=0.3, doplot=True, doFresnel=True, nproc=4):
         nstations = array.nstations
         nconstraints = 2 * nstations * nstations
