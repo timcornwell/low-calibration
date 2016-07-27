@@ -775,32 +775,33 @@ class TelSources:
         self.name = 'Sources'
         self.nsources = 100
     
-    def construct(self, name='Sources', nsources=100, radius=1, smin=0.0, limit=0.95, peeling=100.0):
+    def construct(self, name='Sources', radius=1, smin=0.0, peeling=100.0, FOV=1.0, freq=1e8):
         """ Construct nsources sources above the flux limit
         """
         self.name = name
-        # Make more sources than we need
+        S = sources().randomsources(smin=smin, FOV=FOV, freq=freq)
+        nsources=len(S)
         self.sources = {}
-        self.sources['x'], self.sources['y'] = TelUtils().uniformcircle(100 * nsources, radius)
+        self.sources['x'], self.sources['y'] = TelUtils().uniformcircle(nsources, radius)
         x = self.sources['x']
         y = self.sources['y']
         r = numpy.sqrt(x * x + y * y)
         pb = numpy.exp(numpy.log(0.01) * (r / radius) ** 2)  # Model out to 1% of PB
-        pb[r > 0.95 * radius] = 0.0
-        f = pb * sources().randomsources(smin=smin, nsources=100 * nsources)
-        # Avoid fields with bright sources
-        print("Weakest source is %.3f Jy, brightest source is %.3f" % (smin,  peeling*smin))
+        pb[r > radius] = 0.0
+        f = pb * sources().randomsources(smin=smin, FOV=FOV, freq=freq)
+       # Avoid fields with bright sources
         x = x[f < peeling * smin]
         y = y[f < peeling * smin]
         f = f[f < peeling * smin]
         x = x[f > smin]
         y = y[f > smin]
         f = f[f > smin]
-        self.sources['x'] = x[:nsources]
-        self.sources['y'] = y[:nsources]
-        self.sources['flux'] = f[:nsources]
+        self.sources['x'] = x
+        self.sources['y'] = y
+        self.sources['flux'] = f
+        print("Constructed %d sources" % (len(f)))
         print("Source fluxes = %s" % sorted(self.sources['flux']))
-        self.nsources = nsources
+        self.nsources = len(x)
         self.radius = radius
 
     def plot(self):

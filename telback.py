@@ -13,7 +13,7 @@ from teliono import TelIono
 #####
 # ### Define all configs and plot
 
-def runtrials(nnoll, ntrials, nsources, config, wavelength, stationdiameter, HWZ, smin, tsky=10000 * 3600.0, weight=1.0,
+def runtrials(nnoll, ntrials, config, wavelength, stationdiameter, HWZ, smin, tsky=10000 * 3600.0, weight=1.0,
            snrthreshold=5.0, bandwidth=1e5, nproc=4, doFresnel=True):
 
 
@@ -22,7 +22,8 @@ def runtrials(nnoll, ntrials, nsources, config, wavelength, stationdiameter, HWZ
     Save=0.0
     for trial in range(ntrials):
         ts = TelSources()
-        ts.construct(nsources=nsources, smin=smin, radius=wavelength / stationdiameter)
+        FOV=(wavelength/(2.0*stationdiameter))**2
+        ts.construct(smin=smin, radius=wavelength / stationdiameter, FOV=FOV)
         s = numpy.sqrt(tp.assess(ts, config, nnoll=nnoll, rmax=HWZ, wavelength=3.0, weight=weight,
                                  hiono=300, limit=0.95, doplot=(trial == 0), doFresnel=doFresnel,
                                  nproc=nproc))
@@ -39,7 +40,8 @@ def runtrials(nnoll, ntrials, nsources, config, wavelength, stationdiameter, HWZ
     itsky = TelIono().tsky(J, DR=1e5, B=2 * HWZ)
     stdphase = numpy.sqrt(TelIono().varphase(J, B=2 * HWZ))
 
-    return {'dr': DR, 's': Save, 'J': J, 'tsky': itsky, 'stdphase': stdphase, 'bandwidth': (bandwidth / 1e6)}
+    return {'nsources': len(ts['flux']), 'dr': DR, 's': Save, 'J': J, 'tsky': itsky, 'stdphase': stdphase,
+            'bandwidth': (bandwidth / 1e6)}
 
 
 def printstats(stats, mst):
@@ -48,13 +50,13 @@ def printstats(stats, mst):
     for config in stats.keys():
         for nsources in stats[config].keys():
             print("%s, %.1f, %d, %.1f, %d, %.2f, %.2f, %.2f, %.1f" % (config,
-                                                                      stats[config][nsources]['bandwidth'],
-                                                                      nsources,
-                                                                      stats[config][nsources]['s'][0],
-                                                                      stats[config][nsources]['J'],
-                                                                      stats[config][nsources]['stdphase'],
-                                                                      10.0 * numpy.log10(stats[config][nsources]['dr']),
-                                                                      stats[config][nsources]['tsky'] / (
+                                                                      stats[config]['bandwidth'],
+                                                                      stats[config]['nsources'],
+                                                                      stats[config]['s'][0],
+                                                                      stats[config]['J'],
+                                                                      stats[config]['stdphase'],
+                                                                      10.0 * numpy.log10(stats[config]['dr']),
+                                                                      stats[config]['tsky'] / (
                                                                           24.0 * 3600.0 * 365.0),
                                                                       mst[config]))
 

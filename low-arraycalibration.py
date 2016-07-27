@@ -29,14 +29,13 @@ tel, mst = definetel(configs)
 stats = {}
 for config in tel:
     stats[config] = {}
-    imgnoise, visnoise, nsources, weight, gainnoise = calculatenoise(tiono, freq, bandwidth, tel[config].nstations,
+    imgnoise, visnoise, weight, gainnoise = calculatenoisearray(tiono, freq, bandwidth, tel[config].nstations,
                                                                      stationdiameter,
                                                                      FOV)
     tel[config].stations['weight']=weight * numpy.ones(tel[config].nstations)
-    for nsource in [nsources]:
-        print("Processing %s %d sources" % (config, nsource))
-        stats[config][nsource] = runtrials(nnoll, ntrials, nsource, tel[config], wavelength,
-                                           stationdiameter, HWZ, bandwidth = bandwidth, nproc=nproc,smin=10.0*gainnoise)
+    print("Processing %s" % (config))
+    stats[config] = runtrials(nnoll, ntrials, tel[config], wavelength, stationdiameter, HWZ, bandwidth = bandwidth,
+                              nproc=nproc, smin=10.0*imgnoise)
 
 printstats(stats, mst)
 

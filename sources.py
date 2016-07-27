@@ -7,21 +7,18 @@ from scipy import interpolate
 from scipy.constants import k
 
 class sources:
-#  From Condon et al 2012
-    def confusion(self, freq=1.0e8, B=35.0):
-        theta=180.0*3600.0*3.0e8/(freq*B*1000.0*np.pi)
-        return 1.2e-6 * np.power(freq / 3.02e9, -0.7) * np.power(theta/8.0, 10.0/3.0)
-
-#  Integral source counts N(>S) from Condon et al 2012
-    def numbersold(self, s=1.0, freq=1e8):
-        return numpy.power(freq/1.4e9, 0.7)*9000.0*numpy.power(s, -1.7)
-
-# Randomly chosen strength.         
-    def randomsources(self, smin=1.0, nsources=1):
+# Randomly chosen strength.
+    def randomsources(self, smin, freq, FOV):
+        nsources=int(self.numbers(smin, freq))
         S=numpy.ones(nsources)
-        for i in range(nsources):
-            S[i]=smin*math.pow(random.uniform(0,1),-1.0/0.7)
-        return S
+        for nsource in range(nsources):
+            p=random.uniform(0.0, 1.0)
+            for flux in numpy.arange(smin, 100*smin, 0.01*smin):
+                if (p * nsources > self.numbers(flux, freq)*FOV):
+                    S[nsource] = flux
+                    break
+        return sorted(S)
+            
                 
 # Integrated source counts from Bregman (2012) 140 MHz values scaled to actual frequency
     def numbers(self, flux, freq=1e8):
@@ -29,8 +26,7 @@ class sources:
         numbers=[4.12e7, 4.45e5, 1.88e5, 2.98e4, 5.92e3, 1.36e3, 81.0, 0.75]
         s = interpolate.InterpolatedUnivariateSpline(numpy.log10(numpy.array(fluxes)),
                                                      numpy.log10(numpy.array(numbers)))
-        return (10**s(numpy.log10(flux)))*numpy.power(freq/1.4e9, -0.7)
-
+        return (10**s(numpy.log10(flux)))*numpy.power(freq/1.4e8, -0.8)
 
 # Spot values for A over T from BDv2
     def tnoise(self, freq=1e8, time=1000.0*3600.0, bandwidth=1e5):
