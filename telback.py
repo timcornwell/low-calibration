@@ -40,7 +40,7 @@ def runtrials(nnoll, ntrials, config, wavelength, stationdiameter, HWZ, smin, ts
     itsky = TelIono().tsky(J, DR=1e5, B=2 * HWZ)
     stdphase = numpy.sqrt(TelIono().varphase(J, B=2 * HWZ))
 
-    return {'nsources': len(ts['flux']), 'dr': DR, 's': Save, 'J': J, 'tsky': itsky, 'stdphase': stdphase,
+    return {'nsources': len(ts.sources['flux']), 'dr': DR, 's': Save, 'J': J, 'tsky': itsky, 'stdphase': stdphase,
             'bandwidth': (bandwidth / 1e6)}
 
 
@@ -48,17 +48,16 @@ def printstats(stats, mst):
     print("Config, Bandwidth, Nsources, peak, J, stdphase, DR, sky, MST")
 
     for config in stats.keys():
-        for nsources in stats[config].keys():
-            print("%s, %.1f, %d, %.1f, %d, %.2f, %.2f, %.2f, %.1f" % (config,
-                                                                      stats[config]['bandwidth'],
-                                                                      stats[config]['nsources'],
-                                                                      stats[config]['s'][0],
-                                                                      stats[config]['J'],
-                                                                      stats[config]['stdphase'],
-                                                                      10.0 * numpy.log10(stats[config]['dr']),
-                                                                      stats[config]['tsky'] / (
-                                                                          24.0 * 3600.0 * 365.0),
-                                                                      mst[config]))
+        print("%s, %.1f, %d, %.1f, %d, %.2f, %.2f, %.2f, %.1f" % (config,
+                                                                  stats[config]['bandwidth'],
+                                                                  stats[config]['nsources'],
+                                                                  stats[config]['s'][0],
+                                                                  stats[config]['J'],
+                                                                  stats[config]['stdphase'],
+                                                                  10.0 * numpy.log10(stats[config]['dr']),
+                                                                  stats[config]['tsky'] / (
+                                                                      24.0 * 3600.0 * 365.0),
+                                                                  mst[config]))
 
 
 def definetel(configs, weight=1.0, doplot=False):
@@ -99,30 +98,29 @@ def definetel(configs, weight=1.0, doplot=False):
 
     return (tel, mst)
 
-def plot(name, stats, nsources, nnoll):
+def plot(name, stats, nnoll):
     plt.clf()
     ymax = 0.1
     Jmax = 0
 
-    for nsource in [nsources]:
-        for config in stats.keys():
-            y = stats[config][nsource]['s']
-            if numpy.max(y) > ymax:
-                ymax = numpy.max(y)
-            x = numpy.arange(nnoll)
-            J = x[y < 5.0]
-            if len(J):
-                J=J[0]
-            if J > Jmax:
-                Jmax = J
-            plt.semilogy(x, y, label=config)
+    for config in stats.keys():
+        y = stats[config]['s']
+        if numpy.max(y) > ymax:
+            ymax = numpy.max(y)
+        x = numpy.arange(nnoll)
+        J = x[y < 5.0]
+        if len(J):
+            J=J[0]
+        if J > Jmax:
+            Jmax = J
+        plt.semilogy(x, y, label=config)
     plt.axes().axhline(5.0, color='grey', linestyle='dotted', label='5 sigma cutoff')
     plt.axes().axvline(Jmax, color='grey', linestyle='dotted', label='J=%d' % (int(round(J))))
     plt.xlim([1, nnoll])
     plt.ylim([1, ymax])
     plt.xlabel('Singular value index')
     plt.ylabel('Singular value')
-    plt.title('Singular value spectra: %d sources, max Noll %d' % (nsources, nnoll))
+    plt.title('Singular value spectra: max Noll %d' % (nnoll))
 
     plt.legend(loc="upper right")
     plt.show()
