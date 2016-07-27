@@ -40,7 +40,7 @@ for config in tel:
 printstats(stats, mst)
 
 if doplot:
-    plot(name, stats, nsources, nnoll)
+    plot(name, stats, nnoll)
 
 #######################################################################################################
 # We are done: see cache statistics for zernike shortcuts
