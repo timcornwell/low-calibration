@@ -790,9 +790,14 @@ class TelSources:
         pb = numpy.exp(numpy.log(0.01) * (r / radius) ** 2)  # Model out to 1% of PB
         pb[r > radius] = 0.0
         f = pb * sources().randomsources(smin=smin, FOV=FOV, freq=freq)
+        x=x[f>smin]
+        y=y[f>smin]
+        f=f[f>smin]
+        assert len(self.sources['x']) > 0, "No sources above cutoff"
         self.sources['x'] = x
         self.sources['y'] = y
         self.sources['flux'] = f
+        assert len(self.sources['x']) > 0, "No sources above cutoff after applying primary beam"
         print("Constructed %d sources" % (len(f)))
         print("Source fluxes = %s" % sorted(self.sources['flux']))
         self.nsources = len(x)

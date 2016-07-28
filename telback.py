@@ -78,10 +78,12 @@ def definetel(configs, weight=1.0, doplot=False):
         elif config == 'LOWBD2-HALO':
             tel[config].readCSV('LOWBD2-HALO', csvfile='LOWBD2-HALO.csv', recenter=True, weight=weight)
         elif config == 'LOWBD2-RASTERHALO':
+            tel['LOWBD2-CORE'] = TelArray()
+            tel['LOWBD2-CORE'].readCSV('LOWBD2-CORE', csvfile='LOWBD2-CORE.csv', recenter=True)
             tel['RASTERHALO'] = TelArray()
             tel['RASTERHALO'].rasterBoolardy(nhalo=346, name='LOWRASTERHALO', nstations=346, scale=1.05, rhalo=40.0,
                                              rcore=0.0, weight=weight)
-            tel[config] = TelArray().add(tel['RASTERHALO'], tel['LOWBD2-CORE'], name=config)
+            tel['LOWBD2-RASTERHALO'] = TelArray().add(tel['RASTERHALO'], tel['LOWBD2-CORE'], name=config)
         elif config == 'LOWBD2-RASTERHALO25KM':
             tel['RASTERHALO25KM'] = TelArray()
             tel['RASTERHALO25KM'].rasterBoolardy(nhalo=346, name='LOWRASTERHALO25KM', nstations=346, scale=40.0 / 25.7,
@@ -100,7 +102,11 @@ def definetel(configs, weight=1.0, doplot=False):
     #
         mst[config] = tel[config].mst(doplot=doplot)
 
-    return (tel, mst)
+    newtel = {}
+    for config in configs:
+        newtel[config] = tel[config]
+        
+    return (newtel, mst)
 
 def plot(name, stats, nnoll):
     plt.clf()
@@ -124,7 +130,7 @@ def plot(name, stats, nnoll):
     plt.ylim([1, ymax])
     plt.xlabel('Singular value index')
     plt.ylabel('Singular value')
-    plt.title('Singular value spectra: max Noll %d' % (nnoll))
+    plt.title(name)
 
     plt.legend(loc="upper right")
     plt.show()

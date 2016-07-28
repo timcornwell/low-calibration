@@ -31,7 +31,7 @@ for config in tel:
     stats[config] = {}
     imgnoise, visnoise, weight, gainnoise = calculatenoise(tiono, freq, bandwidth, tel[config].nstations,
                                                                      stationdiameter)
-    print("Image noise in %.1f s = %.3f Jy" % (tiono, imgnoise))
+    print("Image noise in %.1f s = %.4f Jy" % (tiono, imgnoise))
     print("Visibility noise in %.1f s = %1.1f Jy" % (tiono, visnoise))
     print("Weight for visibility = %.1f (1/Jy^2)" % (weight))
 
