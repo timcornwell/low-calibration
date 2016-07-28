@@ -38,7 +38,7 @@ def getinputs():
     nproc = int(d.get("nproc", multiprocessing.cpu_count()))
     print("Using %d processes in inner loop" % (nproc))
     nstations = 512
-    nnoll = int(d.get("Noll", 1500))
+    nnoll = int(d.get("Noll", 1000))
 
     wavelength = float(d.get("wavelength", 3.0))
     stationdiameter = float(d.get('stationdiameter', 35.0))
@@ -74,31 +74,11 @@ def getinputs():
            bandwidth, tiono, configs, ntrials, doplot, doFresnel, nproc
 
 
-def calculatenoisearray(tiono, freq, bandwidth, nstations, stationdiameter, doprint=True):
+def calculatenoise(tiono, freq, bandwidth, nstations, stationdiameter):
     # Calculate weight of solution for each pierce point
     imgnoise = sources().tnoise(time=tiono, freq=freq, bandwidth=bandwidth) * (512 / float(nstations)) * (35.0 /
                                                                                                           stationdiameter) ** 2
     visnoise = sources().tnoise(time=tiono, freq=freq, bandwidth=bandwidth) * float(512) * (35.0 / stationdiameter) ** 2
     weight = 1.0 / visnoise ** 2
     gainnoise=visnoise/numpy.sqrt(512)
-    if doprint:
-        print("Image noise in %.1f s = %.3f Jy" % (tiono, imgnoise))
-        print("Visibility noise in %.1f s = %1.1f Jy" % (tiono, visnoise))
-        print("Weight for visibility = %.1f (1/Jy^2)" % (weight))
-
     return imgnoise, visnoise, weight, gainnoise
-
-def calculatenoisepiercing(tiono, freq, bandwidth, nstations, stationdiameter, doprint=True):
-    # Calculate weight of solution for each pierce point
-    imgnoise = sources().tnoise(time=tiono, freq=freq, bandwidth=bandwidth) * (512 / float(nstations)) * (35.0 /
-                                                                                                          stationdiameter) ** 2
-    visnoise = sources().tnoise(time=tiono, freq=freq, bandwidth=bandwidth) * float(512) * (35.0 / stationdiameter) ** 2
-    weight = 1.0 / visnoise ** 2
-    gainnoise=visnoise/numpy.sqrt(512)
-    if doprint:
-        print("Image noise in %.1f s = %.3f Jy" % (tiono, imgnoise))
-        print("Visibility noise in %.1f s = %1.1f Jy" % (tiono, visnoise))
-        print("Weight for visibility = %.1f (1/Jy^2)" % (weight))
-
-    return imgnoise, visnoise, weight, gainnoise
-

@@ -781,6 +781,7 @@ class TelSources:
         self.name = name
         S = sources().randomsources(smin=smin, FOV=FOV, freq=freq)
         nsources=len(S)
+        print("Constructed %d sources" % nsources)
         self.sources = {}
         self.sources['x'], self.sources['y'] = TelUtils().uniformcircle(nsources, radius)
         x = self.sources['x']
@@ -789,13 +790,6 @@ class TelSources:
         pb = numpy.exp(numpy.log(0.01) * (r / radius) ** 2)  # Model out to 1% of PB
         pb[r > radius] = 0.0
         f = pb * sources().randomsources(smin=smin, FOV=FOV, freq=freq)
-       # Avoid fields with bright sources
-        x = x[f < peeling * smin]
-        y = y[f < peeling * smin]
-        f = f[f < peeling * smin]
-        x = x[f > smin]
-        y = y[f > smin]
-        f = f[f > smin]
         self.sources['x'] = x
         self.sources['y'] = y
         self.sources['flux'] = f

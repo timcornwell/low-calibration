@@ -9,14 +9,16 @@ from scipy.constants import k
 class sources:
 # The number counts are a CDF when normalised correctly.
     def randomsources(self, smin, freq, FOV):
+        smax=1.0
         nsources=int(FOV*self.numbers(smin, freq))
-        cdf = lambda x: (FOV*self.numbers(x, freq)/float(nsources))
+        cdf = lambda x: ((nsources-FOV*self.numbers(x, freq))/(nsources-FOV*self.numbers(smax, freq)))
         S=numpy.ones(nsources)
         for nsource in range(nsources):
             p=random.uniform(0.0, 1.0)
+
             for expflux in numpy.arange(numpy.log10(smin), 1.0, 0.01):
                 flux=10**expflux
-                if (p > cdf(flux)):
+                if (p < cdf(flux)):
                     S[nsource] = flux
                     break
         return sorted(S)

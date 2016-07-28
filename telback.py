@@ -23,7 +23,11 @@ def runtrials(nnoll, ntrials, config, wavelength, stationdiameter, HWZ, smin, ts
     for trial in range(ntrials):
         ts = TelSources()
         FOV=(wavelength/(2.0*stationdiameter))**2
-        ts.construct(smin=smin, radius=wavelength / stationdiameter, FOV=FOV)
+        print("Minimum flux in model %.3f Jy" % (smin))
+        ts.construct(smin=smin, radius=wavelength/stationdiameter, FOV=FOV)
+        S=ts.sources['flux']
+        print("FOV = %f, number of sources = %d, max = %.3f" % (FOV, len(S), numpy.max(S)))
+        print("Total flux in model = %.3f" % (numpy.sum(ts.sources['flux'])))
         s = numpy.sqrt(tp.assess(ts, config, nnoll=nnoll, rmax=HWZ, wavelength=3.0, weight=weight,
                                  hiono=300, limit=0.95, doplot=(trial == 0), doFresnel=doFresnel,
                                  nproc=nproc))
