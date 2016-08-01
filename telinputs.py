@@ -63,7 +63,8 @@ def getinputs():
     print("Ionospheric coherence time = %.1f (s)" % (tiono))
     
     configs = ['LOWBD2', 'LOWBD2-CORE', 'LOWBD2-RASTERHALO']
-    configs = [d.get('configs', ['LOWBD2'])]
+    configs = [d.get('configs', 'LOWBD2')]
+    print("Processing %s" % str(configs))
     
     ntrials = int(d.get('ntrials', 1))
     

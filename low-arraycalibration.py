@@ -10,6 +10,7 @@ from telback import definetel, plot, printstats, runtrials
 from telinputs import *
 from telutil import *
 from zernikecache import fac, pre_fac, inv_sum_pre_fac
+from telionoNonKol import gamma
 
 plt.switch_backend('pdf')
 pylab.rcParams['figure.figsize'] = (8.0, 8.0)
@@ -51,3 +52,4 @@ if doplot:
 print("fac %s" % (str(fac.cache_info())))
 print("pre_fac %s" % (str(pre_fac.cache_info())))
 print("inv_sum_pre_fac %s" % (str(inv_sum_pre_fac.cache_info())))
+print("gamma %s" % (str(gamma.cache_info())))
